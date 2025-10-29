@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
     # --- Modelo de la Base de Datos ---
     class FloralRecordDB(db.Model):
+        __tablename__ = 'floral_records'
         id = db.Column(db.Integer, primary_key=True)
         lote = db.Column(db.String(80), nullable=False)
         hilera = db.Column(db.String(80), nullable=False)
