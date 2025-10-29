@@ -1,7 +1,7 @@
-    import os
-    from flask import Flask, request, jsonify
-    from flask_sqlalchemy import SQLAlchemy
-    from sqlalchemy.exc import SQLAlchemyError
+import os
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import SQLAlchemyError
 
     DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
 
