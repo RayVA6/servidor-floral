@@ -3,26 +3,26 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import SQLAlchemyError
 
-    DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
 
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    db = SQLAlchemy(app)
+db = SQLAlchemy(app)
 
-    class FloralRecordDB(db.Model):
+class FloralRecordDB(db.Model):
         id = db.Column(db.Integer, primary_key=True)
         lote = db.Column(db.String(80), nullable=False)
         hilera = db.Column(db.String(80), nullable=False)
         planta = db.Column(db.String(80), nullable=False)
         button_count = db.Column(db.Integer, nullable=False)
 
-    @app.route('/upload', methods=['POST'])
-    def upload_file():
+@app.route('/upload', methods=['POST'])
+def upload_file():
         print("\n📸 ¡[MODO PRUEBA] Recibida una nueva petición desde la app!")
         
-        if 'image' not in request.files:
+if 'image' not in request.files:
             return jsonify({'error': 'No se encontró una imagen'}), 400
 
         lote = request.form.get('lote', 'N/A')
@@ -59,7 +59,7 @@ from sqlalchemy.exc import SQLAlchemyError
             db.session.rollback()
             return jsonify({'error': f'Error en el servidor: {e}'}), 500
 
-    if __name__ == '__main__':
+if __name__ == '__main__':
         with app.app_context():
             print("🚀 [MODO PRUEBA] Iniciando el servidor Flask...")
             db.create_all()
