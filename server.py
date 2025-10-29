@@ -22,7 +22,7 @@ class FloralRecordDB(db.Model):
 def upload_file():
         print("\n📸 ¡[MODO PRUEBA] Recibida una nueva petición desde la app!")
         
-if 'image' not in request.files:
+        if 'image' not in request.files:
             return jsonify({'error': 'No se encontró una imagen'}), 400
 
         lote = request.form.get('lote', 'N/A')
