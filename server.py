@@ -5,13 +5,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
     # --- Configuración ---
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db = SQLAlchemy(app)
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-    # --- Modelo de la Base de Datos ---
-    class FloralRecordDB(db.Model):
+# --- Modelo de la Base de Datos ---
+class FloralRecordDB(db.Model):
         __tablename__ = 'floral_records'
         id = db.Column(db.Integer, primary_key=True)
         lote = db.Column(db.String(80), nullable=False)
@@ -19,9 +19,9 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
         planta = db.Column(db.String(80), nullable=False)
         button_count = db.Column(db.Integer, nullable=False)
 
-    # --- Endpoint de la API (Modo Prueba) ---
-    @app.route('/upload', methods=['POST'])
-    def upload_file():
+# --- Endpoint de la API (Modo Prueba) ---
+@app.route('/upload', methods=['POST'])
+def upload_file():
         print("\n📸 ¡[MODO PRUEBA] Recibida una nueva petición desde la app!")
         if 'image' not in request.files:
             return jsonify({'error': 'No se encontró una imagen'}), 400
@@ -53,8 +53,8 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///test.db')
             db.session.rollback()
             return jsonify({'error': f'Error en el servidor: {e}'}), 500
 
-    # --- Punto de Entrada ---
-    if __name__ == '__main__':
+# --- Punto de Entrada ---
+if __name__ == '__main__':
         with app.app_context():
             print("🚀 [MODO PRUEBA] Iniciando el servidor Flask...")
             db.create_all()
