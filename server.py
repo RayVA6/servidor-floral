@@ -26,8 +26,8 @@ with app.app_context():
     print("✅ [MODO OFICINISTA] Tablas listas.")
 
 # --- Endpoint de la API ---
-# Esta ruta ahora solo recibe datos y los guarda.
-@app.route('/save_record', methods=['POST'])
+# ¡LA CORRECCIÓN! La app está buscando la ruta '/upload'.
+@app.route('/upload', methods=['POST'])
 def save_record():
     print("\n📝 ¡[MODO OFICINISTA] Recibida una nueva petición para guardar registro!")
     
