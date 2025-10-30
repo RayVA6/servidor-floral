@@ -11,6 +11,22 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+# --- ¡CAMBIO CLAVE! ---
+# No cargamos el modelo al principio, lo dejamos como "None"
+model = None
+
+# Función para cargar el modelo solo cuando se necesite
+def load_model():
+    global model
+    if model is None:
+        try:
+            print("🧠 Cargando el modelo 'best.pt' por primera vez...")
+            model = YOLO('best.pt')
+            print("✅ Modelo cargado con éxito.")
+        except Exception as e:
+            print(f"❌ Error crítico al cargar 'best.pt': {e}")
+            model = None # Asegurarse de que sigue siendo None si falla
+
 # --- Modelo de la Base de Datos ---
 class FloralRecordDB(db.Model):
     __tablename__ = 'floral_records'
@@ -19,14 +35,6 @@ class FloralRecordDB(db.Model):
     hilera = db.Column(db.String(80), nullable=False)
     planta = db.Column(db.String(80), nullable=False)
     button_count = db.Column(db.Integer, nullable=False)
-
-# --- Carga del Modelo IA ---
-model = None
-try:
-    model = YOLO('best.pt')
-    print("✅ Modelo 'best.pt' cargado con éxito.")
-except Exception as e:
-    print(f"❌ Error crítico al cargar 'best.pt': {e}")
 
 # --- Creación de Tablas ---
 with app.app_context():
@@ -37,9 +45,14 @@ with app.app_context():
 # --- Endpoint de la API ---
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    # ¡Llamamos a la función para asegurarnos de que el modelo está cargado!
+    load_model()
+    
     print("\n📸 ¡Recibida una nueva petición desde la app!")
     if 'image' not in request.files:
         return jsonify({'error': 'No se encontró una imagen'}), 400
+    
+    # ... (El resto del código sigue igual)
     image_file = request.files['image']
     lote = request.form.get('lote', 'N/A')
     hilera = request.form.get('hilera', 'N/A')
