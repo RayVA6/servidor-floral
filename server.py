@@ -11,6 +11,22 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+# --- ¡LA SOLUCIÓN! No cargamos el modelo al principio ---
+model = None
+
+# --- Función para cargar el modelo solo cuando se necesite (Carga Perezosa) ---
+def load_model():
+    global model
+    if model is None:
+        try:
+            print("🧠 Cargando el modelo 'best.pt' por primera vez (esto puede tardar)...")
+            model = YOLO('best.pt')
+            print("✅ Modelo cargado y listo para usar.")
+        except Exception as e:
+            print(f"❌ Error crítico al cargar 'best.pt': {e}")
+            # Nos aseguramos de que siga siendo None si falla para que el servidor no se caiga
+            model = None
+
 # --- Modelo de la Base de Datos ---
 class FloralRecordDB(db.Model):
     __tablename__ = 'floral_records'
@@ -26,32 +42,28 @@ with app.app_context():
     db.create_all()
     print("✅ Tablas de la base de datos listas.")
 
-# --- Carga del Modelo IA ---
-model = None
-try:
-    print("🧠 Cargando el modelo 'best.pt'...")
-    model = YOLO('best.pt')
-    print("✅ Modelo 'best.pt' cargado con éxito.")
-except Exception as e:
-    print(f"❌ Error crítico al cargar 'best.pt': {e}")
-
 # --- Endpoint de la API ---
+# Esta vez, el servidor arrancará tan rápido que esta ruta estará disponible desde el segundo 1.
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    # ¡Nos aseguramos de que el modelo esté cargado antes de hacer nada!
+    load_model()
+    
     print("\n📸 ¡Recibida una nueva petición desde la app!")
     if 'image' not in request.files:
         return jsonify({'error': 'No se encontró una imagen'}), 400
 
+    # ... (El resto del código es el que ya conoces) ...
     image_file = request.files['image']
     lote = request.form.get('lote', 'N/A')
     hilera = request.form.get('hilera', 'N/A')
     planta = request.form.get('planta', 'N/A')
-
+    
     uploads_dir = os.path.join(os.getcwd(), 'uploads')
     os.makedirs(uploads_dir, exist_ok=True)
     image_path = os.path.join(uploads_dir, image_file.filename)
     image_file.save(image_path)
-
+    
     try:
         print("   - Ejecutando el modelo de predicción...")
         if model:
@@ -59,9 +71,9 @@ def upload_file():
             detection_count = len(results[0].boxes)
             print(f"   - ✅ Predicción finalizada. Se encontraron {detection_count} detecciones.")
         else:
-            print("   - ⚠️ ADVERTENCIA: Modelo no cargado. Devolviendo -1.")
+            print("   - ⚠️ ADVERTENCIA: El modelo no pudo cargarse. Devolviendo -1.")
             detection_count = -1
-
+        
         print("   - Guardando registro en la base de datos...")
         new_record = FloralRecordDB(
             lote=lote,
@@ -72,12 +84,10 @@ def upload_file():
         db.session.add(new_record)
         db.session.commit()
         print("   - ✅ Registro guardado con éxito.")
-
-        response_data = {
-            'lote': lote, 'hilera': hilera, 'planta': planta, 'button_count': detection_count
-        }
+        
+        response_data = { 'lote': lote, 'hilera': hilera, 'planta': planta, 'button_count': detection_count }
         return jsonify(response_data)
-
+    
     except Exception as e:
         print(f"❌ Error durante la operación: {e}")
         db.session.rollback()
