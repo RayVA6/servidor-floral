@@ -1,5 +1,6 @@
 import os
 from flask import Flask, request, jsonify
+from ultralytics import YOLO
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -21,49 +22,71 @@ class FloralRecordDB(db.Model):
 
 # --- Creación de Tablas ---
 with app.app_context():
-    print("🚀 [MODO OFICINISTA] Iniciando y verificando tablas...")
+    print("🚀 Verificando/Creando tablas de la base de datos...")
     db.create_all()
-    print("✅ [MODO OFICINISTA] Tablas listas.")
+    print("✅ Tablas de la base de datos listas.")
+
+# --- Carga del Modelo IA ---
+model = None
+try:
+    print("🧠 Cargando el modelo 'best.pt'...")
+    model = YOLO('best.pt')
+    print("✅ Modelo 'best.pt' cargado con éxito.")
+except Exception as e:
+    print(f"❌ Error crítico al cargar 'best.pt': {e}")
 
 # --- Endpoint de la API ---
-# ¡LA CORRECCIÓN! La app está buscando la ruta '/upload'.
 @app.route('/upload', methods=['POST'])
-def save_record():
-    print("\n📝 ¡[MODO OFICINISTA] Recibida una nueva petición para guardar registro!")
-    
+def upload_file():
+    print("\n📸 ¡Recibida una nueva petición desde la app!")
+    if 'image' not in request.files:
+        return jsonify({'error': 'No se encontró una imagen'}), 400
+
+    image_file = request.files['image']
+    lote = request.form.get('lote', 'N/A')
+    hilera = request.form.get('hilera', 'N/A')
+    planta = request.form.get('planta', 'N/A')
+
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    os.makedirs(uploads_dir, exist_ok=True)
+    image_path = os.path.join(uploads_dir, image_file.filename)
+    image_file.save(image_path)
+
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No se recibieron datos en formato JSON'}), 400
+        print("   - Ejecutando el modelo de predicción...")
+        if model:
+            results = model(image_path)
+            detection_count = len(results[0].boxes)
+            print(f"   - ✅ Predicción finalizada. Se encontraron {detection_count} detecciones.")
+        else:
+            print("   - ⚠️ ADVERTENCIA: Modelo no cargado. Devolviendo -1.")
+            detection_count = -1
 
-        lote = data.get('lote')
-        hilera = data.get('hilera')
-        planta = data.get('planta')
-        button_count = data.get('button_count')
-
-        if None in [lote, hilera, planta, button_count]:
-            return jsonify({'error': 'Faltan datos en la petición'}), 400
-
-        print(f"   - Datos recibidos: Lote={lote}, Hilera={hilera}, Planta={planta}, Conteo={button_count}")
-        
         print("   - Guardando registro en la base de datos...")
         new_record = FloralRecordDB(
             lote=lote,
             hilera=hilera,
             planta=planta,
-            button_count=button_count
+            button_count=detection_count
         )
         db.session.add(new_record)
         db.session.commit()
-        print("   - ✅ Registro guardado con éxito en la base de datos.")
-        
-        return jsonify({'message': 'Registro guardado con éxito'}), 200
+        print("   - ✅ Registro guardado con éxito.")
+
+        response_data = {
+            'lote': lote, 'hilera': hilera, 'planta': planta, 'button_count': detection_count
+        }
+        return jsonify(response_data)
 
     except Exception as e:
-        print(f"❌ Error durante la operación de guardado: {e}")
+        print(f"❌ Error durante la operación: {e}")
         db.session.rollback()
         return jsonify({'error': f'Error en el servidor: {e}'}), 500
+    finally:
+        if os.path.exists(image_path):
+            os.remove(image_path)
 
 # --- Punto de Entrada (Solo para pruebas locales) ---
 if __name__ == '__main__':
+    print("Iniciando servidor para pruebas locales...")
     app.run(host='0.0.0.0', port=os.environ.get('PORT', 5000))
