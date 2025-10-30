@@ -11,22 +11,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# --- ¡CAMBIO CLAVE! ---
-# No cargamos el modelo al principio, lo dejamos como "None"
-model = None
-
-# Función para cargar el modelo solo cuando se necesite
-def load_model():
-    global model
-    if model is None:
-        try:
-            print("🧠 Cargando el modelo 'best.pt' por primera vez...")
-            model = YOLO('best.pt')
-            print("✅ Modelo cargado con éxito.")
-        except Exception as e:
-            print(f"❌ Error crítico al cargar 'best.pt': {e}")
-            model = None # Asegurarse de que sigue siendo None si falla
-
 # --- Modelo de la Base de Datos ---
 class FloralRecordDB(db.Model):
     __tablename__ = 'floral_records'
@@ -37,32 +21,39 @@ class FloralRecordDB(db.Model):
     button_count = db.Column(db.Integer, nullable=False)
 
 # --- Creación de Tablas ---
+# Esto se asegura de que la tabla existe antes de que el servidor empiece a escuchar.
 with app.app_context():
-    print("🚀 Iniciando el contexto de la aplicación y verificando tablas...")
+    print("🚀 Verificando/Creando tablas de la base de datos...")
     db.create_all()
-    print("✅ Tablas de la base de datos verificadas/creadas.")
+    print("✅ Tablas de la base de datos listas.")
+
+# --- Carga del Modelo IA ---
+# Volvemos a cargar el modelo al inicio. Hugging Face debería tener memoria suficiente.
+model = None
+try:
+    print("🧠 Cargando el modelo 'best.pt'...")
+    model = YOLO('best.pt')
+    print("✅ Modelo 'best.pt' cargado con éxito.")
+except Exception as e:
+    print(f"❌ Error crítico al cargar 'best.pt': {e}")
 
 # --- Endpoint de la API ---
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    # ¡Llamamos a la función para asegurarnos de que el modelo está cargado!
-    load_model()
-    
     print("\n📸 ¡Recibida una nueva petición desde la app!")
     if 'image' not in request.files:
         return jsonify({'error': 'No se encontró una imagen'}), 400
-    
-    # ... (El resto del código sigue igual)
+
     image_file = request.files['image']
     lote = request.form.get('lote', 'N/A')
     hilera = request.form.get('hilera', 'N/A')
     planta = request.form.get('planta', 'N/A')
-    
+
     uploads_dir = os.path.join(os.getcwd(), 'uploads')
     os.makedirs(uploads_dir, exist_ok=True)
     image_path = os.path.join(uploads_dir, image_file.filename)
     image_file.save(image_path)
-    
+
     try:
         print("   - Ejecutando el modelo de predicción...")
         if model:
@@ -70,9 +61,9 @@ def upload_file():
             detection_count = len(results[0].boxes)
             print(f"   - ✅ Predicción finalizada. Se encontraron {detection_count} detecciones.")
         else:
-            print("   - ⚠️ ADVERTENCIA: Modelo no cargado. Devolviendo un valor fijo de -1.")
+            print("   - ⚠️ ADVERTENCIA: Modelo no cargado. Devolviendo -1.")
             detection_count = -1
-        
+
         print("   - Guardando registro en la base de datos...")
         new_record = FloralRecordDB(
             lote=lote,
@@ -83,10 +74,12 @@ def upload_file():
         db.session.add(new_record)
         db.session.commit()
         print("   - ✅ Registro guardado con éxito.")
-        
-        response_data = { 'lote': lote, 'hilera': hilera, 'planta': planta, 'button_count': detection_count }
+
+        response_data = {
+            'lote': lote, 'hilera': hilera, 'planta': planta, 'button_count': detection_count
+        }
         return jsonify(response_data)
-    
+
     except Exception as e:
         print(f"❌ Error durante la operación: {e}")
         db.session.rollback()
