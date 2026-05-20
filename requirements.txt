@@ -4,3 +4,5 @@ Flask-SQLAlchemy==3.1.1
 psycopg2-binary==2.9.9
 opencv-python-headless
 
+libgl1
+libglib2.0-0
